@@ -1,0 +1,319 @@
+settings
+{
+	main
+	{
+		Description: "Same Hero Brawl"
+	}
+
+	lobby
+	{
+		Allow Players Who Are In Queue: Yes
+		Return To Lobby: Never
+	}
+
+	modes
+	{
+		Deathmatch
+		{
+			enabled maps
+			{
+				Workshop Chamber
+				Workshop Island
+			}
+		}
+
+		General
+		{
+			Allow Hero Switching: Off
+			Game Mode Start: Immediately
+			Hero Limit: Off
+			Kill Cam: Off
+			Respawn As Random Hero: On
+			Score To Win: 25
+			Self Initiated Respawn: Off
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Ability Cooldown Time: 75%
+			Ultimate Generation: 150%
+		}
+	}
+}
+
+variables
+{
+	global:
+		0: next_hero
+		1: timer
+		2: timer_id
+		3: winner
+
+	player:
+		0: ult_charge
+		1: trigger_ult_transfer
+}
+
+subroutines
+{
+	0: start_round
+	1: show_countdown
+	2: root_players
+}
+
+rule("DBG Spawn Bot")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Crouch) == True;
+	}
+
+	actions
+	{
+		Create Dummy Bot(Hero(Ana), All Teams, -1, Eye Position(Event Player), Vector(0, 0, 0));
+	}
+}
+
+rule("UI Show next")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is In Setup == True;
+	}
+
+	actions
+	{
+		Set Global Variable(next_hero, Random Value In Array(Filtered Array(All Heroes, Not(Is Hero Being Played(Current Array Element,
+			All Teams)))));
+		Create HUD Text(All Players(All Teams), Custom String("Next Round: {0}{1}", Hero Icon String(Global Variable(next_hero)),
+			Global Variable(next_hero), Null), Null, Null, Right, 0, White, White, White, Visible To and String, Default Visibility);
+	}
+}
+
+rule("Init Player")
+{
+	event
+	{
+		Player Joined Match;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Respawning(Event Player);
+		Enable Death Spectate All Players(Event Player);
+	}
+}
+
+rule("Init Game")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is In Setup == True;
+	}
+
+	actions
+	{
+		Call Subroutine(start_round);
+		disabled Set Player Variable(All Players(All Teams), ult_charge, 0);
+		disabled Set Status(All Players(All Teams), Null, Rooted, 4);
+		disabled Set Primary Fire Enabled(All Players(All Teams), False);
+		disabled Set Secondary Fire Enabled(All Players(All Teams), False);
+		disabled Set Ultimate Ability Enabled(All Players(All Teams), False);
+		disabled Set Ability 1 Enabled(All Players(All Teams), False);
+		disabled Set Ability 2 Enabled(All Players(All Teams), False);
+	}
+}
+
+rule("SUB Start Round")
+{
+	event
+	{
+		Subroutine;
+		start_round;
+	}
+
+	actions
+	{
+		Abort If(Not(Or(Is Game In Progress, Is In Setup)));
+		Start Rule(show_countdown, Do Nothing);
+		Big Message(All Players(All Teams), Custom String("Next Round: {0} {1}", Hero Icon String(Global Variable(next_hero)),
+			Global Variable(next_hero), Null));
+		Wait(2, Ignore Condition);
+		Set Player Allowed Heroes(All Players(All Teams), Global Variable(next_hero));
+		Start Rule(root_players, Do Nothing);
+		Start Forcing Player To Be Hero(All Players(All Teams), Global Variable(next_hero));
+		Wait(3, Ignore Condition);
+		Set Player Variable(All Players(All Teams), trigger_ult_transfer, True);
+		Set Global Variable(next_hero, Random Value In Array(Filtered Array(All Heroes, Compare(Current Array Element, !=, Global Variable(
+			next_hero)))));
+		Big Message(All Players(All Teams), String("Go", Null, Null, Null));
+		Preload Hero(All Players(All Teams), Global Variable(next_hero));
+	}
+}
+
+rule("SUB Show Countdown")
+{
+	event
+	{
+		Subroutine;
+		show_countdown;
+	}
+
+	actions
+	{
+		Create HUD Text(All Players(All Teams), Custom String("Next round starts in {0}...", Global Variable(timer), Null, Null), Null,
+			Null, Top, 999, White, White, White, String, Visible Always);
+		Set Global Variable(timer, 5);
+		Set Global Variable(timer_id, Last Text ID);
+		Wait(1, Ignore Condition);
+		Modify Global Variable(timer, Subtract, 1);
+		Wait(1, Ignore Condition);
+		Modify Global Variable(timer, Subtract, 1);
+		Wait(1, Ignore Condition);
+		Modify Global Variable(timer, Subtract, 1);
+		Wait(1, Ignore Condition);
+		Modify Global Variable(timer, Subtract, 1);
+		Wait(1, Ignore Condition);
+		Destroy HUD Text(Global Variable(timer_id));
+	}
+}
+
+rule("SUB Root players")
+{
+	event
+	{
+		Subroutine;
+		root_players;
+	}
+
+	actions
+	{
+		Set Status(All Players(All Teams), Null, Rooted, 4);
+		Set Primary Fire Enabled(All Players(All Teams), False);
+		Set Secondary Fire Enabled(All Players(All Teams), False);
+		Set Ultimate Ability Enabled(All Players(All Teams), False);
+		Set Ability 1 Enabled(All Players(All Teams), False);
+		Set Ability 2 Enabled(All Players(All Teams), False);
+		Wait(4, Ignore Condition);
+		Set Primary Fire Enabled(All Players(All Teams), True);
+		Set Secondary Fire Enabled(All Players(All Teams), True);
+		Set Ultimate Ability Enabled(All Players(All Teams), True);
+		Set Ability 1 Enabled(All Players(All Teams), True);
+		Set Ability 2 Enabled(All Players(All Teams), True);
+	}
+}
+
+rule("End the round")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+		Number of Living Players(All Teams) <= 1;
+	}
+
+	actions
+	{
+		If(Compare(Number of Living Players(All Teams), ==, 1));
+			Set Global Variable(winner, First Of(All Living Players(All Teams)));
+			Big Message(All Players(All Teams), Custom String("{0}{1} is the last hero standing! (+2)", Hero Icon String(Hero Of(
+				Global Variable(winner))), Global Variable(winner), Null));
+			Modify Player Score(Global Variable(winner), 2);
+			Set Player Variable(Global Variable(winner), ult_charge, Max(0, Multiply(Subtract(Ultimate Charge Percent(Global Variable(winner)),
+				Score Of(Global Variable(winner))), 3)));
+			Set Player Variable(Global Variable(winner), ult_charge, Max(10, Subtract(Ultimate Charge Percent(Global Variable(winner)),
+				Multiply(3, Score Of(Global Variable(winner))))));
+			Wait(2, Ignore Condition);
+			Teleport(Global Variable(winner), Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
+		End;
+		Wait(5, Ignore Condition);
+		Call Subroutine(start_round);
+	}
+}
+
+rule("On Death: Teleport Player, record ult charge")
+{
+	event
+	{
+		Player Died;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(0.500, Ignore Condition);
+		Wait(2, Ignore Condition);
+		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
+		Set Player Variable(Event Player, ult_charge, Max(25, Subtract(Ultimate Charge Percent(Event Player), Multiply(2, Score Of(
+			Event Player)))));
+	}
+}
+
+rule("Triggered Ult Transfer")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Alive(Event Player) == True;
+		Player Variable(Event Player, trigger_ult_transfer) == True;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.100));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.200));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.300));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.400));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.500));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.600));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.700));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.800));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 0.900));
+		Wait(0.100, Ignore Condition);
+		Set Ultimate Charge(Event Player, Multiply(Player Variable(Event Player, ult_charge), 1));
+		Set Player Variable(Event Player, trigger_ult_transfer, False);
+	}
+}
