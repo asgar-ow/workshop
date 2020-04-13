@@ -54,6 +54,12 @@ settings
 			{
 				Deploy Turret: Off
 			}
+
+			Tracer
+			{
+				Blink Cooldown Time: 150%
+				Recall Cooldown Time: 150%
+			}
 		}
 	}
 }
