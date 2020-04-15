@@ -1,0 +1,365 @@
+settings
+{
+	lobby
+	{
+		Allow Players Who Are In Queue: Yes
+	}
+
+	modes
+	{
+		Deathmatch
+		{
+			enabled maps
+			{
+				Workshop Island
+			}
+		}
+
+		General
+		{
+			Allow Hero Switching: Off
+			Game Mode Start: Immediately
+			Kill Cam: Off
+			Kill Feed: Off
+			Respawn As Random Hero: On
+			Respawn Time Scalar: 50%
+			Score To Win: 32
+			Self Initiated Respawn: Off
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Health: 500%
+			Ultimate Generation: 200%
+
+			Baptiste
+			{
+				Immortality Field: Off
+			}
+
+			Brigitte
+			{
+				Repair Pack: Off
+			}
+
+			Mercy
+			{
+				Resurrect: Off
+			}
+
+			Soldier: 76
+			{
+				Biotic Field: Off
+			}
+
+			Symmetra
+			{
+				Sentry Turret: Off
+			}
+
+			Torbjörn
+			{
+				Deploy Turret: Off
+			}
+
+			Zenyatta
+			{
+				Orb of Harmony: Off
+			}
+		}
+	}
+}
+
+variables
+{
+	global:
+		0: hero_list
+		1: highscore
+
+	player:
+		0: last_damager
+		1: time_on_change
+		2: unlucky_as
+		3: unlucky_text_id
+		4: killfeed_text_id
+}
+
+disabled rule("dbg change hero")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Crouch) == False;
+	}
+
+	actions
+	{
+		Start Forcing Player To Be Hero(Event Player, Hero(Tracer));
+	}
+}
+
+rule("dbg spawn bot")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Crouch) == True;
+	}
+
+	actions
+	{
+		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Event Player), Vector(0, 0, 0));
+	}
+}
+
+disabled rule("dbg dummy shooty")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Dummy Bot(Event Player) == True;
+		Is Alive(Event Player) == True;
+	}
+
+	actions
+	{
+		Start Holding Button(Event Player, Primary Fire);
+		Wait(5, Ignore Condition);
+		Stop Holding Button(Event Player, Primary Fire);
+		Wait(0.250, Ignore Condition);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Scoring;
+		Disable Built-In Game Mode Respawning(All Players(All Teams));
+		Enable Death Spectate All Players(All Players(All Teams));
+		Set Global Variable(hero_list, Randomized Array(All Heroes));
+		Wait(1, Ignore Condition);
+		Start Forcing Player To Be Hero(All Players(All Teams), First Of(Global Variable(hero_list)));
+	}
+}
+
+rule("Init player vars")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Set Player Variable(Event Player, time_on_change, Match Time);
+		Set Player Variable(Event Player, last_damager, Event Player);
+	}
+}
+
+rule("boop")
+{
+	event
+	{
+		Player Took Damage;
+		All;
+		All;
+	}
+
+	actions
+	{
+		If(Compare(Event Damage, <, 10));
+			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.800, Event Damage),
+				To World, Cancel Contrary Motion);
+			Apply Impulse(Event Player, Direction Towards(Attacker, Eye Position(Event Player)), Multiply(3.500, Event Damage), To World,
+				Cancel Contrary Motion);
+		Else;
+			Apply Impulse(Event Player, Direction Towards(Attacker, Event Player), Multiply(1.500, Event Damage), To World,
+				Cancel Contrary Motion);
+			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.700, Event Damage),
+				To World, Cancel Contrary Motion);
+		End;
+		Set Player Variable(Event Player, last_damager, Attacker);
+		Apply Impulse(Event Player, Vector(0, 1, 0), 2, To World, Cancel Contrary Motion);
+	}
+}
+
+rule("HoT")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Heal(All Living Players(All Teams), Null, 500);
+		Wait(0.250, Ignore Condition);
+		Loop;
+	}
+}
+
+rule("\"Killfeed\" and death")
+{
+	event
+	{
+		Player Died;
+		All;
+		All;
+	}
+
+	actions
+	{
+		If(Compare(Player Variable(Event Player, last_damager), ==, Event Player));
+			Modify Player Score(Event Player, -1);
+			Create HUD Text(All Players(All Teams), Icon String(Question Mark), Custom String("Oops!", Null, Null, Null), Custom String(
+				"{0} booped himself", Event Player, Null, Null), Right, 100, Red, Red, White, Visible To and String, Default Visibility);
+		Else;
+			Small Message(Event Player, Custom String("{0} booped you!", Player Variable(Event Player, last_damager), Null, Null));
+			Modify Player Score(Player Variable(Event Player, last_damager), 1);
+			Create HUD Text(All Players(All Teams), Icon String(Skull), Custom String("Boop!", Null, Null, Null), Custom String(
+				"{0} booped {1}", Player Variable(Event Player, last_damager), Event Player, Null), Right, 100, Red, Red, White,
+				Visible To and String, Default Visibility);
+		End;
+		Set Player Variable(Event Player, killfeed_text_id, Last Text ID);
+		Wait(3, Ignore Condition);
+		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
+		Wait(1, Ignore Condition);
+		Respawn(Event Player);
+		Set Status(Event Player, Null, Invincible, 2);
+		Set Status(Event Player, Null, Phased Out, 2);
+		Wait(2, Ignore Condition);
+		Destroy HUD Text(Player Variable(Event Player, killfeed_text_id));
+		Set Player Variable(Event Player, last_damager, Event Player);
+	}
+}
+
+rule("Killplane")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Alive(Event Player) == True;
+		Y Component Of(Position Of(Event Player)) < -6;
+	}
+
+	actions
+	{
+		Kill(Event Player, Player Variable(Event Player, last_damager));
+	}
+}
+
+rule("Change Hero")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Hero Of(Event Player) != Value In Array(Global Variable(hero_list), Max(0, Score Of(Event Player)));
+		Is Alive(Event Player) == True;
+	}
+
+	actions
+	{
+		Wait(0.500, Ignore Condition);
+		Start Forcing Player To Be Hero(Event Player, Value In Array(Global Variable(hero_list), Max(0, Score Of(Event Player))));
+		Preload Hero(Event Player, Value In Array(Global Variable(hero_list), Add(1, Score Of(Event Player))));
+		Set Player Variable(Event Player, time_on_change, Match Time);
+	}
+}
+
+rule("record high score")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Score Of(Event Player) > Global Variable(highscore);
+	}
+
+	actions
+	{
+		Set Global Variable(highscore, Score Of(Event Player));
+	}
+}
+
+rule("Pity rule")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Score Of(Event Player) < Subtract(Global Variable(highscore), 7);
+		Absolute Value(Subtract(Match Time, Player Variable(Event Player, time_on_change))) >= 15;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, unlucky_as, Hero Of(Event Player));
+		Modify Player Score(Event Player, 1);
+		Create HUD Text(All Players(All Teams), Icon String(Dizzy), Custom String("Unlucky", Null, Null, Null), Custom String(
+			"{0} got a pity point as {1}{2}", Event Player, Hero Icon String(Player Variable(Event Player, unlucky_as)), Player Variable(
+			Event Player, unlucky_as)), Right, 100, Yellow, Yellow, White, String, Default Visibility);
+		Set Player Variable(Event Player, unlucky_text_id, Last Text ID);
+		Wait(6, Ignore Condition);
+		Destroy HUD Text(Player Variable(Event Player, unlucky_text_id));
+	}
+}
