@@ -34,15 +34,66 @@ settings
 			Health: 500%
 			Ultimate Generation: 200%
 
+			Baptiste
+			{
+				Immortality Field: Off
+			}
+
+			Brigitte
+			{
+				Repair Pack: Off
+			}
+
 			D.Va
 			{
 				Boosters Cooldown Time: 150%
 			}
 
+			Echo
+			{
+				Flight Cooldown Time: 200%
+			}
+
+			Genji
+			{
+				Swift Strike Cooldown Time: 125%
+			}
+
+			Hanzo
+			{
+				Lunge Cooldown Time: 125%
+			}
+
+			Mercy
+			{
+				Resurrect: Off
+			}
+
+			Moira
+			{
+				Fade Cooldown Time: 125%
+			}
+
 			Pharah
 			{
-				Hover Jets Maximum Time: 25%
+				Hover Jets Maximum Time: 33%
 				Jump Jet Cooldown Time: 150%
+			}
+
+			Reaper
+			{
+				Shadow Step Cooldown Time: 125%
+				Wraith Form Cooldown Time: 125%
+			}
+
+			Soldier: 76
+			{
+				Biotic Field: Off
+			}
+
+			Sombra
+			{
+				Translocator Cooldown Time: 125%
 			}
 
 			Symmetra
@@ -57,8 +108,23 @@ settings
 
 			Tracer
 			{
-				Blink Cooldown Time: 150%
-				Recall Cooldown Time: 150%
+				Blink Cooldown Time: 125%
+				Recall Cooldown Time: 125%
+			}
+
+			Winston
+			{
+				Jump Pack Cooldown Time: 125%
+			}
+
+			Wrecking Ball
+			{
+				Grappling Claw Cooldown Time: 125%
+			}
+
+			Zenyatta
+			{
+				Orb of Harmony: Off
 			}
 		}
 	}
@@ -92,7 +158,7 @@ disabled rule("dbg change hero")
 	}
 }
 
-rule("dbg spawn bot")
+disabled rule("dbg spawn bot")
 {
 	event
 	{
@@ -113,7 +179,7 @@ rule("dbg spawn bot")
 	}
 }
 
-rule("dbg dummy shooty")
+disabled rule("dbg dummy shooty")
 {
 	event
 	{
@@ -170,14 +236,18 @@ rule("boop")
 	actions
 	{
 		If(Compare(Event Damage, <, 10));
+			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.800, Event Damage),
+				To World, Cancel Contrary Motion);
 			Apply Impulse(Event Player, Direction Towards(Attacker, Eye Position(Event Player)), Multiply(3.500, Event Damage), To World,
 				Cancel Contrary Motion);
 		Else;
 			Apply Impulse(Event Player, Direction Towards(Attacker, Event Player), Multiply(1.500, Event Damage), To World,
 				Cancel Contrary Motion);
+			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.700, Event Damage),
+				To World, Cancel Contrary Motion);
 		End;
 		Set Player Variable(Event Player, last_damager, Attacker);
-		Apply Impulse(Event Player, Up, 2, To World, Cancel Contrary Motion);
+		Apply Impulse(Event Player, Vector(0, 1, 0), 2, To World, Cancel Contrary Motion);
 	}
 }
 
@@ -190,13 +260,13 @@ rule("HoT")
 
 	actions
 	{
-		Heal(All Living Players(All Teams), Null, 50);
+		Heal(All Living Players(All Teams), Null, 500);
 		Wait(0.250, Ignore Condition);
 		Loop;
 	}
 }
 
-rule("\"Killfeed\", death and respawn")
+rule("\"Killfeed\" and death")
 {
 	event
 	{
@@ -221,14 +291,13 @@ rule("\"Killfeed\", death and respawn")
 				"{0} booped {1}", Player Variable(Event Player, last_damager), Event Player, Null), Right, 100, Red, Red, White,
 				Visible To and String, Default Visibility);
 		End;
-		Wait(2, Ignore Condition);
+		Wait(3, Ignore Condition);
 		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
 		Wait(1, Ignore Condition);
 		Start Forcing Player To Be Hero(Event Player, Player Variable(Event Player, next_hero));
-		Set Status(Event Player, Null, Phased Out, 1);
-		Play Effect(All Players(All Teams), Good Explosion, White, Event Player, 1);
-		Set Status(Event Player, Null, Invincible, 1);
+		Set Status(Event Player, Null, Invincible, 2);
 		Wait(2, Ignore Condition);
 		Destroy HUD Text(Last Text ID);
+		Set Status(Event Player, Null, Phased Out, 2);
 	}
 }
