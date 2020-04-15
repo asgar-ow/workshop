@@ -5,7 +5,7 @@
 * Code: **YXCPJ** (2020-04-13)
 
 ## Boop X
-* BoopX meets Hero Gauntlet
+* Boop2 meets Hero Gauntlet
 
 ## Same Hero Brawl
 * Everyone gets the same hero. No respawns until only one hero is left standing. They get two bonus points and a new round begins.
