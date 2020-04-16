@@ -20,7 +20,6 @@ settings
 			Allow Hero Switching: Off
 			Game Mode Start: Immediately
 			Kill Cam: Off
-			Kill Feed: Off
 			Respawn As Random Hero: On
 			Respawn Time Scalar: 50%
 			Score To Win: 32
@@ -35,26 +34,6 @@ settings
 			Health: 500%
 			Ultimate Generation: 200%
 
-			Baptiste
-			{
-				Immortality Field: Off
-			}
-
-			Brigitte
-			{
-				Repair Pack: Off
-			}
-
-			Mercy
-			{
-				Resurrect: Off
-			}
-
-			Soldier: 76
-			{
-				Biotic Field: Off
-			}
-
 			Symmetra
 			{
 				Sentry Turret: Off
@@ -63,11 +42,9 @@ settings
 			Torbjörn
 			{
 				Deploy Turret: Off
-			}
-
-			Zenyatta
-			{
-				Orb of Harmony: Off
+				Quick Melee: Off
+				Ultimate Ability Molten Core: Off
+				Weapons Enabled: Forge Hammer Only
 			}
 		}
 	}
@@ -84,7 +61,6 @@ variables
 		1: time_on_change
 		2: unlucky_as
 		3: unlucky_text_id
-		4: killfeed_text_id
 }
 
 disabled rule("dbg change hero")
@@ -108,7 +84,7 @@ disabled rule("dbg change hero")
 	}
 }
 
-rule("dbg spawn bot")
+disabled rule("dbg spawn bot")
 {
 	event
 	{
@@ -163,10 +139,11 @@ rule("Init")
 
 	actions
 	{
-		Disable Built-In Game Mode Scoring;
 		Disable Built-In Game Mode Respawning(All Players(All Teams));
 		Enable Death Spectate All Players(All Players(All Teams));
 		Set Global Variable(hero_list, Randomized Array(All Heroes));
+		Modify Global Variable(hero_list, Remove From Array By Value, Hero(Torbjörn));
+		Modify Global Variable(hero_list, Append To Array, Hero(Torbjörn));
 		Wait(1, Ignore Condition);
 		Start Forcing Player To Be Hero(All Players(All Teams), First Of(Global Variable(hero_list)));
 	}
@@ -206,18 +183,19 @@ rule("boop")
 	actions
 	{
 		If(Compare(Event Damage, <, 10));
-			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.800, Event Damage),
-				To World, Cancel Contrary Motion);
 			Apply Impulse(Event Player, Direction Towards(Attacker, Eye Position(Event Player)), Multiply(3.500, Event Damage), To World,
 				Cancel Contrary Motion);
 		Else;
 			Apply Impulse(Event Player, Direction Towards(Attacker, Event Player), Multiply(1.500, Event Damage), To World,
 				Cancel Contrary Motion);
-			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.700, Event Damage),
-				To World, Cancel Contrary Motion);
 		End;
 		Set Player Variable(Event Player, last_damager, Attacker);
 		Apply Impulse(Event Player, Vector(0, 1, 0), 2, To World, Cancel Contrary Motion);
+		"Give Torb using Overload extra oomph"
+		If(And(Compare(Hero Of(Attacker), ==, Hero(Torbjörn)), Is Using Ability 2(Attacker)));
+			Apply Impulse(Event Player, Direction Towards(Position Of(Attacker), Eye Position(Event Player)), Event Damage, To World,
+				Cancel Contrary Motion);
+		End;
 	}
 }
 
@@ -236,41 +214,6 @@ rule("HoT")
 	}
 }
 
-rule("\"Killfeed\" and death")
-{
-	event
-	{
-		Player Died;
-		All;
-		All;
-	}
-
-	actions
-	{
-		If(Compare(Player Variable(Event Player, last_damager), ==, Event Player));
-			Modify Player Score(Event Player, -1);
-			Create HUD Text(All Players(All Teams), Icon String(Question Mark), Custom String("Oops!", Null, Null, Null), Custom String(
-				"{0} booped himself", Event Player, Null, Null), Right, 100, Red, Red, White, Visible To and String, Default Visibility);
-		Else;
-			Small Message(Event Player, Custom String("{0} booped you!", Player Variable(Event Player, last_damager), Null, Null));
-			Modify Player Score(Player Variable(Event Player, last_damager), 1);
-			Create HUD Text(All Players(All Teams), Icon String(Skull), Custom String("Boop!", Null, Null, Null), Custom String(
-				"{0} booped {1}", Player Variable(Event Player, last_damager), Event Player, Null), Right, 100, Red, Red, White,
-				Visible To and String, Default Visibility);
-		End;
-		Set Player Variable(Event Player, killfeed_text_id, Last Text ID);
-		Wait(3, Ignore Condition);
-		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
-		Wait(1, Ignore Condition);
-		Respawn(Event Player);
-		Set Status(Event Player, Null, Invincible, 2);
-		Set Status(Event Player, Null, Phased Out, 2);
-		Wait(2, Ignore Condition);
-		Destroy HUD Text(Player Variable(Event Player, killfeed_text_id));
-		Set Player Variable(Event Player, last_damager, Event Player);
-	}
-}
-
 rule("Killplane")
 {
 	event
@@ -283,12 +226,35 @@ rule("Killplane")
 	conditions
 	{
 		Is Alive(Event Player) == True;
-		Y Component Of(Position Of(Event Player)) < -6;
+		Y Component Of(Position Of(Event Player)) < -20;
+		Player Variable(Event Player, last_damager) != Event Player;
 	}
 
 	actions
 	{
 		Kill(Event Player, Player Variable(Event Player, last_damager));
+	}
+}
+
+rule("Death and Respawn")
+{
+	event
+	{
+		Player Died;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(3, Ignore Condition);
+		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
+		Wait(1, Ignore Condition);
+		Respawn(Event Player);
+		Set Status(Event Player, Null, Invincible, 1);
+		Set Status(Event Player, Null, Phased Out, 1);
+		Wait(2, Ignore Condition);
+		Set Player Variable(Event Player, last_damager, Event Player);
 	}
 }
 
@@ -348,7 +314,7 @@ rule("Pity rule")
 	conditions
 	{
 		Score Of(Event Player) < Subtract(Global Variable(highscore), 7);
-		Absolute Value(Subtract(Match Time, Player Variable(Event Player, time_on_change))) >= 15;
+		Absolute Value(Subtract(Match Time, Player Variable(Event Player, time_on_change))) >= 45;
 	}
 
 	actions
@@ -359,7 +325,7 @@ rule("Pity rule")
 			"{0} got a pity point as {1}{2}", Event Player, Hero Icon String(Player Variable(Event Player, unlucky_as)), Player Variable(
 			Event Player, unlucky_as)), Right, 100, Yellow, Yellow, White, String, Default Visibility);
 		Set Player Variable(Event Player, unlucky_text_id, Last Text ID);
-		Wait(6, Ignore Condition);
+		Wait(10, Ignore Condition);
 		Destroy HUD Text(Player Variable(Event Player, unlucky_text_id));
 	}
 }
