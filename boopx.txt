@@ -34,6 +34,11 @@ settings
 			Health: 500%
 			Ultimate Generation: 200%
 
+			D.Va
+			{
+				Ultimate Ability Self-Destruct: Off
+			}
+
 			Symmetra
 			{
 				Sentry Turret: Off
@@ -61,27 +66,6 @@ variables
 		1: time_on_change
 		2: unlucky_as
 		3: unlucky_text_id
-}
-
-disabled rule("dbg change hero")
-{
-	event
-	{
-		Ongoing - Each Player;
-		All;
-		All;
-	}
-
-	conditions
-	{
-		Is Button Held(Event Player, Interact) == True;
-		Is Button Held(Event Player, Crouch) == False;
-	}
-
-	actions
-	{
-		Start Forcing Player To Be Hero(Event Player, Hero(Tracer));
-	}
 }
 
 disabled rule("dbg spawn bot")
@@ -255,6 +239,27 @@ rule("Death and Respawn")
 		Set Status(Event Player, Null, Phased Out, 1);
 		Wait(2, Ignore Condition);
 		Set Player Variable(Event Player, last_damager, Event Player);
+	}
+}
+
+rule("D.va death workaround")
+{
+	event
+	{
+		Player Died;
+		All;
+		D.Va;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, last_damager) != Event Player;
+	}
+
+	actions
+	{
+		Modify Player Score(Event Player, 1);
+		Modify Player Score(Player Variable(Event Player, last_damager), 1);
 	}
 }
 
