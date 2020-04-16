@@ -20,7 +20,6 @@ settings
 			Allow Hero Switching: Off
 			Game Mode Start: Immediately
 			Kill Cam: Off
-			Kill Feed: Off
 			Respawn As Random Hero: On
 			Respawn Time Scalar: 50%
 			Self Initiated Respawn: Off
@@ -37,6 +36,7 @@ settings
 			D.Va
 			{
 				Boosters Cooldown Time: 150%
+				Ultimate Ability Self-Destruct: Off
 			}
 
 			Echo
@@ -151,6 +151,8 @@ disabled rule("dbg spawn bot")
 	actions
 	{
 		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Event Player), Vector(0, 0, 0));
+		Wait(0.250, Ignore Condition);
+		Start Forcing Player To Be Hero(All Players(All Teams), Hero(D.Va));
 	}
 }
 
@@ -193,9 +195,29 @@ rule("Init")
 
 	actions
 	{
-		Disable Built-In Game Mode Scoring;
 		Disable Built-In Game Mode Respawning(All Players(All Teams));
 		Enable Death Spectate All Players(All Players(All Teams));
+	}
+}
+
+rule("Init player var")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Set Player Variable(Event Player, last_damager, Event Player);
 	}
 }
 
@@ -211,18 +233,14 @@ rule("boop")
 	actions
 	{
 		If(Compare(Event Damage, <, 10));
-			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.800, Event Damage),
-				To World, Cancel Contrary Motion);
 			Apply Impulse(Event Player, Direction Towards(Attacker, Eye Position(Event Player)), Multiply(3.500, Event Damage), To World,
 				Cancel Contrary Motion);
 		Else;
 			Apply Impulse(Event Player, Direction Towards(Attacker, Event Player), Multiply(1.500, Event Damage), To World,
 				Cancel Contrary Motion);
-			disabled Apply Impulse(Event Player, Add(Direction Towards(Attacker, Event Player), Vector(0, 0.200, 0)), Multiply(0.700, Event Damage),
-				To World, Cancel Contrary Motion);
 		End;
 		Set Player Variable(Event Player, last_damager, Attacker);
-		Apply Impulse(Event Player, Vector(0, 1, 0), 2, To World, Cancel Contrary Motion);
+		Apply Impulse(Event Player, Up, 2, To World, Cancel Contrary Motion);
 	}
 }
 
@@ -241,7 +259,29 @@ rule("HoT")
 	}
 }
 
-rule("\"Killfeed\" and death")
+rule("Killplane")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Alive(Event Player) == True;
+		Y Component Of(Position Of(Event Player)) < -17;
+		Player Variable(Event Player, last_damager) != Event Player;
+	}
+
+	actions
+	{
+		Kill(Event Player, Player Variable(Event Player, last_damager));
+	}
+}
+
+rule("Death and Respawn")
 {
 	event
 	{
@@ -255,24 +295,33 @@ rule("\"Killfeed\" and death")
 		Set Player Variable(Event Player, next_hero, Random Value In Array(Filtered Array(All Heroes, Compare(Current Array Element, !=,
 			Hero Of(Event Player)))));
 		Preload Hero(Event Player, Player Variable(Event Player, next_hero));
-		If(Compare(Player Variable(Event Player, last_damager), ==, Event Player));
-			Modify Player Score(Event Player, -1);
-			Create HUD Text(All Players(All Teams), Icon String(Question Mark), Custom String("Oops!", Null, Null, Null), Custom String(
-				"{0} booped himself", Event Player, Null, Null), Right, 100, Red, Red, White, Visible To and String, Default Visibility);
-		Else;
-			Small Message(Event Player, Custom String("{0} booped you!", Player Variable(Event Player, last_damager), Null, Null));
-			Modify Player Score(Player Variable(Event Player, last_damager), 1);
-			Create HUD Text(All Players(All Teams), Icon String(Skull), Custom String("Boop!", Null, Null, Null), Custom String(
-				"{0} booped {1}", Player Variable(Event Player, last_damager), Event Player, Null), Right, 100, Red, Red, White,
-				Visible To and String, Default Visibility);
-		End;
 		Wait(3, Ignore Condition);
 		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
 		Wait(1, Ignore Condition);
+		Set Player Variable(Event Player, last_damager, Event Player);
 		Start Forcing Player To Be Hero(Event Player, Player Variable(Event Player, next_hero));
 		Set Status(Event Player, Null, Invincible, 2);
-		Wait(2, Ignore Condition);
-		Destroy HUD Text(Last Text ID);
 		Set Status(Event Player, Null, Phased Out, 2);
+	}
+}
+
+rule("D.va death workaround")
+{
+	event
+	{
+		Player Died;
+		All;
+		D.Va;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, last_damager) != Event Player;
+	}
+
+	actions
+	{
+		Modify Player Score(Event Player, 1);
+		Modify Player Score(Player Variable(Event Player, last_damager), 1);
 	}
 }
