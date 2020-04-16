@@ -34,16 +34,6 @@ settings
 			Health: 500%
 			Ultimate Generation: 200%
 
-			Baptiste
-			{
-				Immortality Field: Off
-			}
-
-			Brigitte
-			{
-				Repair Pack: Off
-			}
-
 			D.Va
 			{
 				Boosters Cooldown Time: 150%
@@ -64,11 +54,6 @@ settings
 				Lunge Cooldown Time: 125%
 			}
 
-			Mercy
-			{
-				Resurrect: Off
-			}
-
 			Moira
 			{
 				Fade Cooldown Time: 125%
@@ -84,11 +69,6 @@ settings
 			{
 				Shadow Step Cooldown Time: 125%
 				Wraith Form Cooldown Time: 125%
-			}
-
-			Soldier: 76
-			{
-				Biotic Field: Off
 			}
 
 			Sombra
@@ -120,11 +100,6 @@ settings
 			Wrecking Ball
 			{
 				Grappling Claw Cooldown Time: 125%
-			}
-
-			Zenyatta
-			{
-				Orb of Harmony: Off
 			}
 		}
 	}
