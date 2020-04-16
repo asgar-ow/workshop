@@ -179,6 +179,9 @@ rule("boop")
 		If(And(Compare(Hero Of(Attacker), ==, Hero(Torbjörn)), Is Using Ability 2(Attacker)));
 			Apply Impulse(Event Player, Direction Towards(Position Of(Attacker), Eye Position(Event Player)), Event Damage, To World,
 				Cancel Contrary Motion);
+			Play Effect(All Players(All Teams), Buff Explosion Sound, White, Event Player, 100);
+			Play Effect(All Players(All Teams), Ring Explosion, White, Event Player, 7.500);
+			Play Effect(All Players(All Teams), Explosion Sound, White, Event Player, 100);
 		End;
 	}
 }
