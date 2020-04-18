@@ -66,6 +66,7 @@ variables
 		1: time_on_change
 		2: unlucky_as
 		3: unlucky_text_id
+		4: spawn_protect_ids
 }
 
 disabled rule("dbg spawn bot")
@@ -149,9 +150,9 @@ rule("Init player vars")
 
 	actions
 	{
+		Set Player Variable(Event Player, last_damager, Event Player);
 		Wait(1, Ignore Condition);
 		Set Player Variable(Event Player, time_on_change, Match Time);
-		Set Player Variable(Event Player, last_damager, Event Player);
 	}
 }
 
@@ -190,14 +191,21 @@ rule("HoT")
 {
 	event
 	{
-		Ongoing - Global;
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Health(Event Player) < Max Health(Event Player);
 	}
 
 	actions
 	{
-		Heal(All Living Players(All Teams), Null, 500);
+		Heal(Event Player, Null, 500);
 		Wait(0.250, Ignore Condition);
-		Loop;
+		Loop If Condition Is True;
 	}
 }
 
@@ -235,13 +243,66 @@ rule("Death and Respawn")
 	actions
 	{
 		Wait(3, Ignore Condition);
-		Teleport(Event Player, Vector(Random Real(-16, 16), 0, Random Real(-16, 16)));
+		Teleport(Event Player, Vector(Random Real(-10, 10), 0, Random Real(-10, 10)));
 		Wait(1, Ignore Condition);
 		Respawn(Event Player);
-		Set Status(Event Player, Null, Invincible, 1);
-		Set Status(Event Player, Null, Phased Out, 1);
-		Wait(2, Ignore Condition);
 		Set Player Variable(Event Player, last_damager, Event Player);
+		Set Status(Event Player, Null, Phased Out, 9999);
+		Set Status(Event Player, Null, Invincible, 9999);
+	}
+}
+
+rule("Spawn protection")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Status(Event Player, Phased Out) == True;
+		Has Status(Event Player, Invincible) == True;
+	}
+
+	actions
+	{
+		Wait(1, Abort When False);
+		Create HUD Text(Event Player, Icon String(Heart), Custom String("Spawn Protected", Null, Null, Null), Custom String(
+			"You're spawn protected until you perform an action", Null, Null, Null), Top, 666, White, White, White, Visible To and String,
+			Default Visibility);
+		Set Player Variable At Index(Event Player, spawn_protect_ids, 0, Last Text ID);
+		Create In-World Text(All Players(All Teams), Icon String(Heart), Eye Position(Event Player), 1, Clip Against Surfaces,
+			Visible To Position and String, Yellow, Default Visibility);
+		Set Player Variable At Index(Event Player, spawn_protect_ids, 1, Last Text ID);
+	}
+}
+
+rule("Break Spawn Protection")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Status(Event Player, Phased Out) == True;
+		Has Status(Event Player, Invincible) == True;
+		Or(Or(Or(Or(Is Using Ultimate(Event Player), Is Using Ability 1(Event Player)), Is Using Ability 2(Event Player)),
+			Is Firing Primary(Event Player)), Is Firing Secondary(Event Player)) == True;
+	}
+
+	actions
+	{
+		Clear Status(Event Player, Invincible);
+		Clear Status(Event Player, Phased Out);
+		Destroy HUD Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 0));
+		Destroy In-World Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 1));
 	}
 }
 
