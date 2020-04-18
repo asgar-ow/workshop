@@ -22,7 +22,7 @@ settings
 			Kill Cam: Off
 			Respawn As Random Hero: On
 			Respawn Time Scalar: 50%
-			Score To Win: 32
+			Score To Win: 15
 			Self Initiated Respawn: Off
 		}
 	}
@@ -124,10 +124,13 @@ rule("Init")
 
 	actions
 	{
+		"Prevent snooping (:"
+		Disable Inspector Recording;
 		Disable Built-In Game Mode Respawning(All Players(All Teams));
 		Enable Death Spectate All Players(All Players(All Teams));
 		Set Global Variable(hero_list, Randomized Array(All Heroes));
 		Modify Global Variable(hero_list, Remove From Array By Value, Hero(Torbjörn));
+		Set Global Variable(hero_list, Array Slice(Global Variable(hero_list), 0, 14));
 		Modify Global Variable(hero_list, Append To Array, Hero(Torbjörn));
 		Wait(1, Ignore Condition);
 		Start Forcing Player To Be Hero(All Players(All Teams), First Of(Global Variable(hero_list)));
