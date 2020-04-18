@@ -6,7 +6,7 @@
 
 ## Boop X
 * Boop2 meets Hero Gauntlet
-* Code: **24CVG** (2020-04-16)
+* Code: **C7C20** (2020-04-18)
 
 ## Same Hero Brawl
 * Everyone gets the same hero. No respawns until only one hero is left standing. They get two bonus points and a new round begins.
