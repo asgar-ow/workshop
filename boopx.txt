@@ -39,6 +39,12 @@ settings
 				Ultimate Ability Self-Destruct: Off
 			}
 
+			Reinhardt
+			{
+				Damage Dealt: 125%
+				Rocket Hammer Knockback Scalar: 200%
+			}
+
 			Symmetra
 			{
 				Sentry Turret: Off
@@ -274,8 +280,8 @@ rule("Spawn protection")
 	{
 		Wait(1, Abort When False);
 		Create HUD Text(Event Player, Icon String(Heart), Custom String("Spawn Protected", Null, Null, Null), Custom String(
-			"You're spawn protected until you perform an action", Null, Null, Null), Top, 666, White, White, White, Visible To and String,
-			Default Visibility);
+			"You're spawn protected until you move or perform an action", Null, Null, Null), Top, 666, White, White, White,
+			Visible To and String, Default Visibility);
 		Set Player Variable At Index(Event Player, spawn_protect_ids, 0, Last Text ID);
 		Create In-World Text(All Players(All Teams), Icon String(Heart), Eye Position(Event Player), 1, Clip Against Surfaces,
 			Visible To Position and String, Yellow, Default Visibility);
@@ -283,7 +289,7 @@ rule("Spawn protection")
 	}
 }
 
-rule("Break Spawn Protection")
+rule("Break Spawn Protection on ability use")
 {
 	event
 	{
@@ -302,6 +308,32 @@ rule("Break Spawn Protection")
 
 	actions
 	{
+		Clear Status(Event Player, Invincible);
+		Clear Status(Event Player, Phased Out);
+		Destroy HUD Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 0));
+		Destroy In-World Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 1));
+	}
+}
+
+rule("Break Spawn Protection on move")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Status(Event Player, Phased Out) == True;
+		Has Status(Event Player, Invincible) == True;
+		Is Moving(Event Player) == True;
+	}
+
+	actions
+	{
+		Wait(0.050, Abort When False);
 		Clear Status(Event Player, Invincible);
 		Clear Status(Event Player, Phased Out);
 		Destroy HUD Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 0));
