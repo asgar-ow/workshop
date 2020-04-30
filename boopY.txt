@@ -80,7 +80,7 @@ variables
 		6: teleportable
 }
 
-rule("dbg become echo")
+disabled rule("dbg become echo")
 {
 	event
 	{
@@ -390,7 +390,7 @@ rule("D.va death workaround")
 	}
 }
 
-disabled rule("Change Hero")
+rule("Change Hero")
 {
 	event
 	{
@@ -476,11 +476,12 @@ rule("Create portals")
 
 	actions
 	{
-		Wait(Random Integer(2, 6), Ignore Condition);
+		Wait(Random Integer(25, 55), Abort When False);
 		Set Global Variable(portal_ids, Empty Array);
-		Set Global Variable(blueportal_pos, Vector(12, 10, 12));
-		Set Global Variable(orangeportal_pos, Vector(0, 4, 0));
+		Set Global Variable(blueportal_pos, Vector(Random Real(-24, 24), Random Real(2, 20), Random Real(-24, 24)));
+		Set Global Variable(orangeportal_pos, Vector(Random Real(-24, 24), Random Real(2, 20), Random Real(-24, 24)));
 		Small Message(All Players(All Teams), Custom String("Some portals are appearing!", Null, Null, Null));
+		Set Player Variable(All Players(All Teams), teleportable, True);
 		Set Global Variable(portal_size, 0.100);
 		Chase Global Variable Over Time(portal_size, 3, 2, Destination and Duration);
 		Create Effect(All Players(All Teams), Orb, Orange, Global Variable(orangeportal_pos), Global Variable(portal_size),
@@ -502,13 +503,18 @@ rule("Create portals")
 			0.300), Position and Radius);
 		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
 		Wait(0.250, Ignore Condition);
-		Wait(Random Integer(10, 10), Ignore Condition);
-		Set Player Variable(All Players(All Teams), teleportable, True);
+		Wait(Random Integer(20, 60), Ignore Condition);
 		Small Message(All Players(All Teams), Custom String("Portals are closing", Null, Null, Null));
+		Chase Global Variable Over Time(portal_size, 0.100, 2, Destination and Duration);
+		Set Player Variable(All Players(All Teams), teleportable, False);
+		Wait(2, Ignore Condition);
 		While(Not(Compare(Global Variable(portal_ids), ==, Empty Array)));
 			Destroy Effect(First Of(Global Variable(portal_ids)));
 			Modify Global Variable(portal_ids, Remove From Array By Index, 0);
+			Set Player Variable(All Players(All Teams), teleportable, False);
 		End;
+		Set Player Variable(All Players(All Teams), teleportable, False);
+		Loop If Condition Is True;
 	}
 }
 
@@ -532,6 +538,7 @@ rule("Touch orange portal")
 		Set Player Variable(Event Player, teleportable, False);
 		Wait(0.016, Ignore Condition);
 		Teleport(Event Player, Global Variable(blueportal_pos));
+		Big Message(All Players(All Teams), Icon String(Spiral));
 		Create HUD Text(All Players(All Teams), Icon String(Spiral), Custom String("Teleported!", Null, Null, Null), Custom String(
 			"{0}{1} is thinking with portals", Hero Icon String(Hero Of(Event Player)), Event Player, Null), Left, 0, Orange, Orange,
 			Orange, Visible To and String, Default Visibility);
@@ -562,27 +569,12 @@ rule("Touch blue portal")
 		Set Player Variable(Event Player, teleportable, False);
 		Wait(0.016, Ignore Condition);
 		Teleport(Event Player, Global Variable(orangeportal_pos));
+		Big Message(All Players(All Teams), Icon String(Spiral));
 		Create HUD Text(All Players(All Teams), Icon String(Spiral), Custom String("Teleported!", Null, Null, Null), Custom String(
 			" {0}{1} has been ported", Hero Icon String(Hero Of(Event Player)), Event Player, Null), Left, 0, Sky Blue, Sky Blue, Sky Blue,
 			Visible To and String, Default Visibility);
 		Wait(1, Ignore Condition);
 		Set Player Variable(Event Player, teleportable, True);
 		Wait(2, Ignore Condition);
-	}
-}
-
-rule("Rule 20")
-{
-	event
-	{
-		Ongoing - Global;
-	}
-}
-
-rule("Rule 21")
-{
-	event
-	{
-		Ongoing - Global;
 	}
 }
