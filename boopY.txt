@@ -1,0 +1,588 @@
+settings
+{
+	lobby
+	{
+		Allow Players Who Are In Queue: Yes
+	}
+
+	modes
+	{
+		Deathmatch
+		{
+			enabled maps
+			{
+				Workshop Island
+			}
+		}
+
+		General
+		{
+			Allow Hero Switching: Off
+			Game Mode Start: Immediately
+			Kill Cam: Off
+			Respawn As Random Hero: On
+			Respawn Time Scalar: 50%
+			Score To Win: 15
+			Self Initiated Respawn: Off
+		}
+	}
+
+	heroes
+	{
+		General
+		{
+			Health: 500%
+			Ultimate Generation: 200%
+
+			D.Va
+			{
+				Ultimate Ability Self-Destruct: Off
+			}
+
+			Reinhardt
+			{
+				Damage Dealt: 125%
+				Rocket Hammer Knockback Scalar: 200%
+			}
+
+			Symmetra
+			{
+				Sentry Turret: Off
+			}
+
+			Torbjörn
+			{
+				Deploy Turret: Off
+				Quick Melee: Off
+				Ultimate Ability Molten Core: Off
+				Weapons Enabled: Forge Hammer Only
+			}
+		}
+	}
+}
+
+variables
+{
+	global:
+		0: hero_list
+		1: highscore
+		2: orangeportal_pos
+		3: blueportal_pos
+		4: portal_size
+		5: portal_ids
+
+	player:
+		0: last_damager
+		1: time_on_change
+		2: unlucky_as
+		3: unlucky_text_id
+		4: spawn_protect_ids
+		6: teleportable
+}
+
+rule("dbg become echo")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+	}
+
+	actions
+	{
+		Start Forcing Player To Be Hero(Event Player, Hero(Echo));
+		Create HUD Text(All Players(All Teams), Custom String("{0}", Distance Between(Global Variable(orangeportal_pos), Event Player),
+			Null, Null), Null, Null, Left, 0, White, White, White, Visible To and String, Default Visibility);
+	}
+}
+
+disabled rule("dbg spawn bot")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Is Button Held(Event Player, Crouch) == True;
+	}
+
+	actions
+	{
+		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Event Player), Vector(0, 0, 0));
+	}
+}
+
+disabled rule("dbg dummy shooty")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Dummy Bot(Event Player) == True;
+		Is Alive(Event Player) == True;
+	}
+
+	actions
+	{
+		Start Holding Button(Event Player, Primary Fire);
+		Wait(5, Ignore Condition);
+		Stop Holding Button(Event Player, Primary Fire);
+		Wait(0.250, Ignore Condition);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		"Prevent snooping (:"
+		disabled Disable Inspector Recording;
+		Disable Built-In Game Mode Respawning(All Players(All Teams));
+		Enable Death Spectate All Players(All Players(All Teams));
+		Set Global Variable(hero_list, Randomized Array(All Heroes));
+		Modify Global Variable(hero_list, Remove From Array By Value, Hero(Torbjörn));
+		Set Global Variable(hero_list, Array Slice(Global Variable(hero_list), 0, 14));
+		Modify Global Variable(hero_list, Append To Array, Hero(Torbjörn));
+		Wait(1, Ignore Condition);
+		Start Forcing Player To Be Hero(All Players(All Teams), First Of(Global Variable(hero_list)));
+	}
+}
+
+rule("Init player vars")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, last_damager, Event Player);
+		Wait(1, Ignore Condition);
+		Set Player Variable(Event Player, time_on_change, Match Time);
+		Set Player Variable(Event Player, teleportable, False);
+	}
+}
+
+rule("boop")
+{
+	event
+	{
+		Player Took Damage;
+		All;
+		All;
+	}
+
+	actions
+	{
+		If(Compare(Event Damage, <, 10));
+			Apply Impulse(Event Player, Direction Towards(Attacker, Eye Position(Event Player)), Multiply(3.500, Event Damage), To World,
+				Cancel Contrary Motion);
+		Else;
+			Apply Impulse(Event Player, Direction Towards(Attacker, Event Player), Multiply(1.500, Event Damage), To World,
+				Cancel Contrary Motion);
+		End;
+		Set Player Variable(Event Player, last_damager, Attacker);
+		Apply Impulse(Event Player, Vector(0, 1, 0), 2, To World, Cancel Contrary Motion);
+		"Give Torb using Overload extra oomph"
+		If(And(Compare(Hero Of(Attacker), ==, Hero(Torbjörn)), Is Using Ability 2(Attacker)));
+			Apply Impulse(Event Player, Direction Towards(Position Of(Attacker), Eye Position(Event Player)), Event Damage, To World,
+				Cancel Contrary Motion);
+			Play Effect(All Players(All Teams), Buff Explosion Sound, White, Event Player, 100);
+			Play Effect(All Players(All Teams), Ring Explosion, White, Event Player, 7.500);
+			Play Effect(All Players(All Teams), Explosion Sound, White, Event Player, 100);
+		End;
+	}
+}
+
+rule("HoT")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Health(Event Player) < Max Health(Event Player);
+	}
+
+	actions
+	{
+		Heal(Event Player, Null, 500);
+		Wait(0.250, Ignore Condition);
+		Loop If Condition Is True;
+	}
+}
+
+rule("Killplane")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Alive(Event Player) == True;
+		Y Component Of(Position Of(Event Player)) < -20;
+		Player Variable(Event Player, last_damager) != Event Player;
+	}
+
+	actions
+	{
+		Kill(Event Player, Player Variable(Event Player, last_damager));
+	}
+}
+
+rule("Death and Respawn")
+{
+	event
+	{
+		Player Died;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(3, Ignore Condition);
+		Teleport(Event Player, Vector(Random Real(-10, 10), 0, Random Real(-10, 10)));
+		Wait(1, Ignore Condition);
+		Respawn(Event Player);
+		Set Player Variable(Event Player, last_damager, Event Player);
+		Set Status(Event Player, Null, Phased Out, 9999);
+		Set Status(Event Player, Null, Invincible, 9999);
+	}
+}
+
+rule("Spawn protection")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Status(Event Player, Phased Out) == True;
+		Has Status(Event Player, Invincible) == True;
+	}
+
+	actions
+	{
+		Wait(0.500, Abort When False);
+		Create HUD Text(Event Player, Icon String(Heart), Custom String("Spawn Protected", Null, Null, Null), Custom String(
+			"You're spawn protected until you move or perform an action", Null, Null, Null), Top, 666, White, White, White,
+			Visible To and String, Default Visibility);
+		Set Player Variable At Index(Event Player, spawn_protect_ids, 0, Last Text ID);
+		Create In-World Text(All Players(All Teams), Icon String(Heart), Eye Position(Event Player), 1, Clip Against Surfaces,
+			Visible To Position and String, Yellow, Default Visibility);
+		Set Player Variable At Index(Event Player, spawn_protect_ids, 1, Last Text ID);
+	}
+}
+
+rule("Break Spawn Protection on ability use")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Status(Event Player, Phased Out) == True;
+		Has Status(Event Player, Invincible) == True;
+		Or(Or(Or(Or(Is Using Ultimate(Event Player), Is Using Ability 1(Event Player)), Is Using Ability 2(Event Player)),
+			Is Firing Primary(Event Player)), Is Firing Secondary(Event Player)) == True;
+	}
+
+	actions
+	{
+		Clear Status(Event Player, Invincible);
+		Clear Status(Event Player, Phased Out);
+		Destroy HUD Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 0));
+		Destroy In-World Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 1));
+	}
+}
+
+rule("Break Spawn Protection on move")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Has Status(Event Player, Phased Out) == True;
+		Has Status(Event Player, Invincible) == True;
+		Is Moving(Event Player) == True;
+	}
+
+	actions
+	{
+		Wait(0.050, Abort When False);
+		Clear Status(Event Player, Invincible);
+		Clear Status(Event Player, Phased Out);
+		Destroy HUD Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 0));
+		Destroy In-World Text(Value In Array(Player Variable(Event Player, spawn_protect_ids), 1));
+	}
+}
+
+rule("D.va death workaround")
+{
+	event
+	{
+		Player Died;
+		All;
+		D.Va;
+	}
+
+	conditions
+	{
+		Player Variable(Event Player, last_damager) != Event Player;
+	}
+
+	actions
+	{
+		Modify Player Score(Event Player, 1);
+		Modify Player Score(Player Variable(Event Player, last_damager), 1);
+	}
+}
+
+disabled rule("Change Hero")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Hero Of(Event Player) != Value In Array(Global Variable(hero_list), Max(0, Score Of(Event Player)));
+		Is Alive(Event Player) == True;
+	}
+
+	actions
+	{
+		Wait(0.500, Ignore Condition);
+		Start Forcing Player To Be Hero(Event Player, Value In Array(Global Variable(hero_list), Max(0, Score Of(Event Player))));
+		Preload Hero(Event Player, Value In Array(Global Variable(hero_list), Add(1, Score Of(Event Player))));
+		Set Player Variable(Event Player, time_on_change, Match Time);
+	}
+}
+
+rule("record high score")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Score Of(Event Player) > Global Variable(highscore);
+	}
+
+	actions
+	{
+		Set Global Variable(highscore, Score Of(Event Player));
+	}
+}
+
+rule("Pity rule")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Score Of(Event Player) < Subtract(Global Variable(highscore), 7);
+		Absolute Value(Subtract(Match Time, Player Variable(Event Player, time_on_change))) >= 45;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, unlucky_as, Hero Of(Event Player));
+		Modify Player Score(Event Player, 1);
+		Create HUD Text(All Players(All Teams), Icon String(Dizzy), Custom String("Unlucky", Null, Null, Null), Custom String(
+			"{0} got a pity point as {1}{2}", Event Player, Hero Icon String(Player Variable(Event Player, unlucky_as)), Player Variable(
+			Event Player, unlucky_as)), Right, 100, Yellow, Yellow, White, String, Default Visibility);
+		Set Player Variable(Event Player, unlucky_text_id, Last Text ID);
+		Wait(10, Ignore Condition);
+		Destroy HUD Text(Player Variable(Event Player, unlucky_text_id));
+	}
+}
+
+rule("Create portals")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+	}
+
+	actions
+	{
+		Wait(Random Integer(2, 6), Ignore Condition);
+		Set Global Variable(portal_ids, Empty Array);
+		Set Global Variable(blueportal_pos, Vector(12, 10, 12));
+		Set Global Variable(orangeportal_pos, Vector(0, 4, 0));
+		Small Message(All Players(All Teams), Custom String("Some portals are appearing!", Null, Null, Null));
+		Set Global Variable(portal_size, 0.100);
+		Chase Global Variable Over Time(portal_size, 3, 2, Destination and Duration);
+		Create Effect(All Players(All Teams), Orb, Orange, Global Variable(orangeportal_pos), Global Variable(portal_size),
+			Position and Radius);
+		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Sphere, Orange, Global Variable(orangeportal_pos), Subtract(Global Variable(portal_size),
+			0.300), Position and Radius);
+		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Sparkles, Orange, Global Variable(orangeportal_pos), Add(Global Variable(portal_size),
+			0.300), Position and Radius);
+		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Orb, Sky Blue, Global Variable(blueportal_pos), Global Variable(portal_size),
+			Position and Radius);
+		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Sphere, Sky Blue, Global Variable(blueportal_pos), Subtract(Global Variable(portal_size),
+			0.300), Position and Radius);
+		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
+		Create Effect(All Players(All Teams), Sparkles, Sky Blue, Global Variable(blueportal_pos), Add(Global Variable(portal_size),
+			0.300), Position and Radius);
+		Modify Global Variable(portal_ids, Append To Array, Last Created Entity);
+		Wait(0.250, Ignore Condition);
+		Wait(Random Integer(10, 10), Ignore Condition);
+		Set Player Variable(All Players(All Teams), teleportable, True);
+		Small Message(All Players(All Teams), Custom String("Portals are closing", Null, Null, Null));
+		While(Not(Compare(Global Variable(portal_ids), ==, Empty Array)));
+			Destroy Effect(First Of(Global Variable(portal_ids)));
+			Modify Global Variable(portal_ids, Remove From Array By Index, 0);
+		End;
+	}
+}
+
+rule("Touch orange portal")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Distance Between(Global Variable(orangeportal_pos), Event Player) < Add(Global Variable(portal_size), 2);
+		Player Variable(Event Player, teleportable) != False;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, teleportable, False);
+		Wait(0.016, Ignore Condition);
+		Teleport(Event Player, Global Variable(blueportal_pos));
+		Create HUD Text(All Players(All Teams), Icon String(Spiral), Custom String("Teleported!", Null, Null, Null), Custom String(
+			"{0}{1} is thinking with portals", Hero Icon String(Hero Of(Event Player)), Event Player, Null), Left, 0, Orange, Orange,
+			Orange, Visible To and String, Default Visibility);
+		Wait(1, Ignore Condition);
+		Set Player Variable(Event Player, teleportable, True);
+		Wait(2, Ignore Condition);
+		Destroy HUD Text(Last Text ID);
+	}
+}
+
+rule("Touch blue portal")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Distance Between(Global Variable(blueportal_pos), Event Player) < Add(Global Variable(portal_size), 2);
+		Player Variable(Event Player, teleportable) != False;
+	}
+
+	actions
+	{
+		Set Player Variable(Event Player, teleportable, False);
+		Wait(0.016, Ignore Condition);
+		Teleport(Event Player, Global Variable(orangeportal_pos));
+		Create HUD Text(All Players(All Teams), Icon String(Spiral), Custom String("Teleported!", Null, Null, Null), Custom String(
+			" {0}{1} has been ported", Hero Icon String(Hero Of(Event Player)), Event Player, Null), Left, 0, Sky Blue, Sky Blue, Sky Blue,
+			Visible To and String, Default Visibility);
+		Wait(1, Ignore Condition);
+		Set Player Variable(Event Player, teleportable, True);
+		Wait(2, Ignore Condition);
+	}
+}
+
+rule("Rule 20")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Rule 21")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
