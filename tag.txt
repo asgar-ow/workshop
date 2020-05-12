@@ -52,6 +52,11 @@ variables
 		3: last_damaged_player
 }
 
+subroutines
+{
+	0: Reset
+}
+
 rule("dbg init")
 {
 	event
@@ -67,7 +72,7 @@ rule("dbg init")
 	}
 }
 
-disabled rule("dbg dummy shooty")
+rule("dbg dummy shooty")
 {
 	event
 	{
@@ -109,11 +114,15 @@ rule("Init Player")
 			Enable Death Spectate All Players(Event Player);
 			Wait(0.250, Ignore Condition);
 			Kill(Event Player, Null);
+			Abort;
 		Else;
-			Set Player Variable(Event Player, time_left, 20.900);
+			Set Player Variable(Event Player, time_left, 90.900);
 		End;
 		Wait(0.250, Ignore Condition);
 		Set Player Variable(Event Player, next_hero, Random Value In Array(Remove From Array(All Heroes, Hero Of(Event Player))));
+		Create HUD Text(Event Player, Icon String(Moon), Custom String("Your Timebank", Null, Null, Null), Custom String(
+			"{0} seconds left", Round To Integer(Player Variable(Event Player, time_left), Down), Null, Null), Left, 1, White, White,
+			White, Visible To and String, Default Visibility);
 	}
 }
 
@@ -137,8 +146,6 @@ rule("Init Game")
 		Set Global Variable(active_players, All Players(All Teams));
 		Set Global Variable(it, Random Value In Array(All Players(All Teams)));
 		Set Respawn Max Time(Global Variable(it), 2.500);
-		Start Damage Modification(Remove From Array(All Players(All Teams), Global Variable(it)), Remove From Array(All Players(All Teams),
-			Global Variable(it)), 0, Receivers Damagers and Damage Percent);
 	}
 }
 
@@ -157,7 +164,8 @@ rule("Update Match Timer")
 	actions
 	{
 		Set Match Time(Player Variable(Global Variable(it), time_left));
-		Wait(1, Ignore Condition);
+		Modify Player Variable(Global Variable(it), time_left, Subtract, 0.100);
+		Wait(0.100, Ignore Condition);
 		Loop;
 	}
 }
@@ -178,28 +186,7 @@ rule("dbg test")
 
 	actions
 	{
-		Set Global Variable(it, Event Player);
-	}
-}
-
-rule("Remove time from it")
-{
-	event
-	{
-		Ongoing - Global;
-	}
-
-	conditions
-	{
-		Is Game In Progress == True;
-		Is Alive(Global Variable(it)) == True;
-	}
-
-	actions
-	{
-		Modify Player Variable(Global Variable(it), time_left, Subtract, 0.100);
-		Wait(0.100, Abort When False);
-		Loop;
+		Start Forcing Player To Be Hero(Event Player, Hero(Pharah));
 	}
 }
 
@@ -219,8 +206,8 @@ rule("It gets a kill")
 
 	actions
 	{
-		Destroy All Icons;
 		Set Global Variable(it, Victim);
+		Call Subroutine(Reset);
 	}
 }
 
@@ -248,6 +235,8 @@ rule("Update Non-Its")
 			Visible To and Position, Lime Green, False);
 		Set Move Speed(Event Player, 100);
 		Set Max Health(Event Player, 100);
+		Start Damage Modification(Remove From Array(Remove From Array(All Players(All Teams), Event Player), Global Variable(it)),
+			Event Player, 0, None);
 	}
 }
 
@@ -294,7 +283,7 @@ rule("Record who it last damaged")
 	}
 }
 
-rule("IT ran out of time")
+rule("It ran out of time")
 {
 	event
 	{
@@ -320,7 +309,7 @@ rule("IT ran out of time")
 		Else;
 			Set Global Variable(it, Random Value In Array(Global Variable(active_players)));
 		End;
-		Destroy All Icons;
+		Call Subroutine(Reset);
 	}
 }
 
@@ -347,5 +336,46 @@ rule("Punish suicides")
 		Wait(1.500, Ignore Condition);
 		Small Message(Event Player, Custom String("Try not to kill yourself out there...", Null, Null, Null));
 		Set Status(Event Player, Null, Knocked Down, 8);
+	}
+}
+
+rule("Kill it and get rewarded")
+{
+	event
+	{
+		Player Earned Elimination;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Victim == Global Variable(it);
+	}
+
+	actions
+	{
+		Create HUD Text(All Players(All Teams), Icon String(Recycle), Custom String("Time stolen", Null, Null, Null), Custom String(
+			"{0} stole 5 seconds from {1}", Attacker, Victim, Null), Right, 100, White, White, White, Visible To and String,
+			Default Visibility);
+		Modify Player Variable(Attacker, time_left, Add, 5);
+		Modify Player Variable(Victim, time_left, Subtract, 2.500);
+		Wait(5, Ignore Condition);
+		Destroy HUD Text(Last Text ID);
+	}
+}
+
+rule("SUB Reset")
+{
+	event
+	{
+		Subroutine;
+		Reset;
+	}
+
+	actions
+	{
+		Destroy All Icons;
+		Stop All Damage Modifications;
 	}
 }
