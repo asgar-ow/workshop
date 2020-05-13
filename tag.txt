@@ -3,7 +3,7 @@ settings
 	lobby
 	{
 		Map Rotation: After A Game
-		Max FFA Players: 3
+		Max FFA Players: 8
 		Return To Lobby: After A Game
 	}
 
@@ -11,21 +11,26 @@ settings
 	{
 		Deathmatch
 		{
+			Score To Win: 50
+			Self Initiated Respawn: Off
+
 			enabled maps
 			{
-				Workshop Island
+				Black Forest
+				Blizzard World
+				Castillo
+				Ecopoint: Antarctica
+				Necropolis
 			}
 		}
 
 		General
 		{
 			Allow Hero Switching: Off
-			Game Length In Minutes: 15
+			Game Mode Start: Immediately
 			Limit Roles: 2 Of Each Role Per Team
 			Respawn As Random Hero: On
 			Respawn Time Scalar: 25%
-			Score To Win: 50
-			Self Initiated Respawn: Off
 		}
 	}
 
@@ -57,18 +62,24 @@ subroutines
 	0: Reset
 }
 
-rule("dbg init")
+disabled rule("dbg test")
 {
 	event
 	{
-		Ongoing - Global;
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
 	}
 
 	actions
 	{
-		Wait(1, Ignore Condition);
-		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Vector(0, 0, 0)), Vector(0, 0, 0));
-		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Vector(0, 0, 0)), Vector(0, 0, 0));
+		Set Global Variable(it, Event Player);
+		Call Subroutine(Reset);
 	}
 }
 
@@ -95,6 +106,21 @@ disabled rule("dbg dummy shooty")
 		Stop Holding Button(Event Player, Primary Fire);
 		Wait(Random Real(2, 5), Ignore Condition);
 		Loop If Condition Is True;
+	}
+}
+
+disabled rule("dbg init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Wait(1, Ignore Condition);
+		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Vector(0, 0, 0)), Vector(0, 0, 0));
+		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Vector(0, 0, 0)), Vector(0, 0, 0));
 	}
 }
 
@@ -145,11 +171,10 @@ rule("Init Game")
 		Disable Built-In Game Mode Scoring;
 		Set Global Variable(active_players, All Players(All Teams));
 		Set Global Variable(it, Random Value In Array(All Players(All Teams)));
-		Set Respawn Max Time(Global Variable(it), 2.500);
 	}
 }
 
-disabled rule("Update Match Timer")
+rule("Update Match Timer")
 {
 	event
 	{
@@ -167,26 +192,6 @@ disabled rule("Update Match Timer")
 		Modify Player Variable(Global Variable(it), time_left, Subtract, 0.100);
 		Wait(0.100, Ignore Condition);
 		Loop;
-	}
-}
-
-rule("dbg test")
-{
-	event
-	{
-		Ongoing - Each Player;
-		All;
-		All;
-	}
-
-	conditions
-	{
-		Is Button Held(Event Player, Interact) == True;
-	}
-
-	actions
-	{
-		Start Forcing Player To Be Hero(Event Player, Hero(Pharah));
 	}
 }
 
@@ -231,7 +236,9 @@ rule("Update Non-Its")
 	actions
 	{
 		Wait(0.250, Ignore Condition);
-		Destroy HUD Text(Player Variable(Event Player, center_hud_id));
+		If(Compare(Player Variable(Event Player, center_hud_id), !=, 0));
+			Destroy HUD Text(Player Variable(Event Player, center_hud_id));
+		End;
 		Set Player Variable(Event Player, old_it, Global Variable(it));
 		Create Icon(Global Variable(it), Event Player, Arrow: Down, Visible To and Position, Team 2, True);
 		Create Icon(Remove From Array(Remove From Array(All Players(All Teams), Global Variable(it)), Event Player), Event Player, Happy,
@@ -241,7 +248,7 @@ rule("Update Non-Its")
 		Start Damage Modification(Remove From Array(Remove From Array(All Players(All Teams), Global Variable(it)), Event Player),
 			Event Player, 0, Receivers Damagers and Damage Percent);
 		Create HUD Text(Event Player, Icon String(Warning), Custom String("{0} is it!", Global Variable(it), Null, Null), Custom String(
-			"Don't get killed! Kill {0} to steal some of his time.", Global Variable(it), Null, Null), Top, 5, Aqua, Aqua, White,
+			"Don't get killed! Kill {0} to steal some of their time.", Global Variable(it), Null, Null), Top, 5, Aqua, Aqua, White,
 			Visible To and String, Default Visibility);
 		Set Player Variable(Event Player, center_hud_id, Last Text ID);
 	}
@@ -268,9 +275,13 @@ rule("Update It")
 		Set Player Variable(Event Player, old_it, Global Variable(it));
 		Set Move Speed(Event Player, 130);
 		Set Max Health(Event Player, 300);
+		If(Compare(Player Variable(Event Player, center_hud_id), !=, 0));
+			Destroy HUD Text(Player Variable(Event Player, center_hud_id));
+		End;
 		Create HUD Text(Event Player, Icon String(Exclamation Mark), Custom String("You're it!", Null, Null, Null), Custom String(
 			"Kill someone before your time runs out!", Null, Null, Null), Top, 5, Red, Red, White, Visible To and String,
 			Default Visibility);
+		Set Player Variable(Event Player, center_hud_id, Last Text ID);
 	}
 }
 
