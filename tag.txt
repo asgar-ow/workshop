@@ -17,7 +17,6 @@ settings
 			enabled maps
 			{
 				Black Forest
-				Blizzard World
 				Castillo
 				Ecopoint: Antarctica
 				Necropolis
@@ -48,6 +47,9 @@ variables
 	global:
 		0: it
 		1: active_players
+		2: overtime_ui_helper1
+		3: overtime_ui_helper2
+		4: overtime_factor
 
 	player:
 		0: time_left
@@ -109,7 +111,7 @@ disabled rule("dbg dummy shooty")
 	}
 }
 
-disabled rule("dbg init")
+disabled rule("dbg spawn bots")
 {
 	event
 	{
@@ -119,8 +121,10 @@ disabled rule("dbg init")
 	actions
 	{
 		Wait(1, Ignore Condition);
-		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Vector(0, 0, 0)), Vector(0, 0, 0));
-		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Vector(0, 0, 0)), Vector(0, 0, 0));
+		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Random Value In Array(All Players(
+			All Teams))), Vector(0, 0, 0));
+		Create Dummy Bot(Random Value In Array(All Heroes), All Teams, -1, Nearest Walkable Position(Random Value In Array(All Players(
+			All Teams))), Vector(0, 0, 0));
 	}
 }
 
@@ -146,9 +150,9 @@ rule("Init Player")
 		End;
 		Wait(0.250, Ignore Condition);
 		Set Player Variable(Event Player, next_hero, Random Value In Array(Remove From Array(All Heroes, Hero Of(Event Player))));
-		Create HUD Text(Event Player, Icon String(Moon), Custom String("Your Timebank", Null, Null, Null), Custom String(
-			"{0} seconds left", Round To Integer(Player Variable(Event Player, time_left), Down), Null, Null), Left, 1, White, White,
-			White, Visible To and String, Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Event Player, Custom String("{0} seconds", Round To Integer(Player Variable(
+			Event Player, time_left), Down), Null, Null), Left, Subtract(20, Score Of(Event Player)), White, White, White,
+			Visible To Sort Order and String, Default Visibility);
 	}
 }
 
@@ -211,6 +215,8 @@ rule("It gets a kill")
 
 	actions
 	{
+		Modify Player Variable(Event Player, time_left, Add, 5);
+		Small Message(Event Player, Custom String("+ 5 seconds", Null, Null, Null));
 		Wait(0.100, Ignore Condition);
 		Set Global Variable(it, Victim);
 		Call Subroutine(Reset);
@@ -314,11 +320,14 @@ rule("It ran out of time")
 
 	conditions
 	{
-		Player Variable(Global Variable(it), time_left) < 0;
+		Player Variable(Global Variable(it), time_left) <= 0;
 	}
 
 	actions
 	{
+		Big Message(All Players(All Teams), Custom String("{0} is out of time!", Global Variable(it), Null, Null));
+		Destroy HUD Text(Player Variable(Global Variable(it), center_hud_id));
+		Wait(0.250, Ignore Condition);
 		Kill(Global Variable(it), Null);
 		Disable Built-In Game Mode Respawning(Global Variable(it));
 		Modify Global Variable(active_players, Remove From Array By Value, Global Variable(it));
@@ -326,6 +335,7 @@ rule("It ran out of time")
 		If(Compare(Count Of(Global Variable(active_players)), <=, 1));
 			Declare Player Victory(First Of(Global Variable(active_players)));
 		End;
+		Set Player Variable(Global Variable(it), time_left, 0);
 		If(Array Contains(Global Variable(active_players), Player Variable(Global Variable(it), last_damaged_player)));
 			Set Global Variable(it, Player Variable(Global Variable(it), last_damaged_player));
 		Else;
@@ -381,6 +391,7 @@ rule("Kill it and get rewarded")
 			"{0} stole 5 seconds from {1}", Attacker, Victim, Null), Right, 100, White, White, White, Visible To and String,
 			Default Visibility);
 		Modify Player Variable(Attacker, time_left, Add, 5);
+		Small Message(Event Player, Custom String("+ 5 seconds", Null, Null, Null));
 		Modify Player Variable(Victim, time_left, Subtract, 2.500);
 		Wait(5, Ignore Condition);
 		Destroy HUD Text(Last Text ID);
@@ -399,5 +410,62 @@ rule("SUB Reset")
 	{
 		Destroy All Icons;
 		Stop All Damage Modifications;
+	}
+}
+
+rule("Overtime init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Set Global Variable(overtime_ui_helper1, Empty Array);
+		Set Global Variable(overtime_ui_helper2, Empty Array);
+		Create HUD Text(Global Variable(overtime_ui_helper1), Custom String("x{0}", Global Variable(overtime_factor), Null, Null),
+			Custom String("{0}'s time is running out!", Global Variable(it), Null, Null), Custom String("{0} deals {1}00% damage",
+			Global Variable(it), Global Variable(overtime_factor), Null), Top, 111, Red, Red, White, Visible To and String,
+			Default Visibility);
+		Create HUD Text(Global Variable(overtime_ui_helper2), Custom String("x{0}", Global Variable(overtime_factor), Null, Null),
+			Custom String("{0}'s time is running out!", Global Variable(it), Null, Null), Custom String("{0} deals {1}00% damage",
+			Global Variable(it), Global Variable(overtime_factor), Null), Top, 111, White, Red, White, Visible To and String,
+			Default Visibility);
+	}
+}
+
+rule("Overtime damage bonus")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Game In Progress == True;
+		Match Time < 16;
+	}
+
+	actions
+	{
+		Start Damage Modification(All Players(All Teams), Global Variable(it), Multiply(Global Variable(overtime_factor), 100),
+			Receivers Damagers and Damage Percent);
+		If(Compare(Match Time, <, 6));
+			Set Global Variable(overtime_factor, 5);
+		Else If(Compare(Match Time, <, 11));
+			Set Global Variable(overtime_factor, 3);
+		Else;
+			Set Global Variable(overtime_factor, 2);
+		End;
+		Set Global Variable(overtime_ui_helper1, All Players(All Teams));
+		Wait(0.500, Ignore Condition);
+		Set Global Variable(overtime_ui_helper1, Empty Array);
+		Set Global Variable(overtime_ui_helper2, All Players(All Teams));
+		Wait(0.500, Ignore Condition);
+		Set Global Variable(overtime_ui_helper2, Empty Array);
+		Stop Damage Modification(Last Damage Modification ID);
+		Loop If Condition Is True;
 	}
 }
