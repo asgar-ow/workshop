@@ -11,10 +11,6 @@ settings
 	{
 		Deathmatch
 		{
-			Game Length In Minutes: 15
-			Score To Win: 50
-			Self Initiated Respawn: Off
-
 			enabled maps
 			{
 				Workshop Island
@@ -24,9 +20,12 @@ settings
 		General
 		{
 			Allow Hero Switching: Off
+			Game Length In Minutes: 15
 			Limit Roles: 2 Of Each Role Per Team
 			Respawn As Random Hero: On
 			Respawn Time Scalar: 25%
+			Score To Win: 50
+			Self Initiated Respawn: Off
 		}
 	}
 
@@ -50,6 +49,7 @@ variables
 		1: next_hero
 		2: old_it
 		3: last_damaged_player
+		4: center_hud_id
 }
 
 subroutines
@@ -72,7 +72,7 @@ rule("dbg init")
 	}
 }
 
-rule("dbg dummy shooty")
+disabled rule("dbg dummy shooty")
 {
 	event
 	{
@@ -149,7 +149,7 @@ rule("Init Game")
 	}
 }
 
-rule("Update Match Timer")
+disabled rule("Update Match Timer")
 {
 	event
 	{
@@ -206,6 +206,7 @@ rule("It gets a kill")
 
 	actions
 	{
+		Wait(0.100, Ignore Condition);
 		Set Global Variable(it, Victim);
 		Call Subroutine(Reset);
 	}
@@ -229,14 +230,20 @@ rule("Update Non-Its")
 
 	actions
 	{
+		Wait(0.250, Ignore Condition);
+		Destroy HUD Text(Player Variable(Event Player, center_hud_id));
 		Set Player Variable(Event Player, old_it, Global Variable(it));
 		Create Icon(Global Variable(it), Event Player, Arrow: Down, Visible To and Position, Team 2, True);
 		Create Icon(Remove From Array(Remove From Array(All Players(All Teams), Global Variable(it)), Event Player), Event Player, Happy,
 			Visible To and Position, Lime Green, False);
 		Set Move Speed(Event Player, 100);
 		Set Max Health(Event Player, 100);
-		Start Damage Modification(Remove From Array(Remove From Array(All Players(All Teams), Event Player), Global Variable(it)),
-			Event Player, 0, None);
+		Start Damage Modification(Remove From Array(Remove From Array(All Players(All Teams), Global Variable(it)), Event Player),
+			Event Player, 0, Receivers Damagers and Damage Percent);
+		Create HUD Text(Event Player, Icon String(Warning), Custom String("{0} is it!", Global Variable(it), Null, Null), Custom String(
+			"Don't get killed! Kill {0} to steal some of his time.", Global Variable(it), Null, Null), Top, 5, Aqua, Aqua, White,
+			Visible To and String, Default Visibility);
+		Set Player Variable(Event Player, center_hud_id, Last Text ID);
 	}
 }
 
@@ -257,9 +264,13 @@ rule("Update It")
 
 	actions
 	{
+		Wait(0.250, Ignore Condition);
 		Set Player Variable(Event Player, old_it, Global Variable(it));
 		Set Move Speed(Event Player, 130);
 		Set Max Health(Event Player, 300);
+		Create HUD Text(Event Player, Icon String(Exclamation Mark), Custom String("You're it!", Null, Null, Null), Custom String(
+			"Kill someone before your time runs out!", Null, Null, Null), Top, 5, Red, Red, White, Visible To and String,
+			Default Visibility);
 	}
 }
 
