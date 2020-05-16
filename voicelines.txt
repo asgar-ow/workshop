@@ -1,0 +1,238 @@
+settings
+{
+	lobby
+	{
+		Allow Players Who Are In Queue: Yes
+	}
+
+	modes
+	{
+		Practice Range
+
+		General
+		{
+			Hero Limit: Off
+		}
+	}
+}
+
+variables
+{
+	global:
+		0: delay
+		1: current_voiceline
+}
+
+subroutines
+{
+	0: UltimateStatus
+	1: Health
+	2: Voicelines
+}
+
+rule("Init")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.delay = 2;
+		Disable Built-In Game Mode Music;
+		Wait(5, Ignore Condition);
+		Create Dummy Bot(Random Value In Array(All Heroes), Team 1, 5, Nearest Walkable Position(Vector(52.313, 2.301, 26.009)), Vector(0,
+			0, 1));
+		Create HUD Text(All Players(All Teams), Null, Custom String("Voiceline Test Mode"), Custom String("The bot mirrors {0}'s pick.",
+			Players In Slot(0, All Teams)), Left, 1, White, White, White, Visible To and String, Default Visibility);
+		Create HUD Text(All Players(All Teams), Null, Custom String("Made for Overwatch v1.48"), Null, Left, 2, White, White, White,
+			Visible To and String, Default Visibility);
+		Create HUD Text(All Players(Team 1), Hero Icon String(Hero Of(Players In Slot(5, All Teams))), Hero Of(Players In Slot(5,
+			All Teams)), Global.current_voiceline, Top, 3, Team 1, Team 1, White, String, Default Visibility);
+	}
+}
+
+rule("Mirror player 0 pick")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 1;
+		Slot 5;
+	}
+
+	conditions
+	{
+		Is Dummy Bot(Event Player) == True;
+		Has Spawned(Players In Slot(0, All Teams)) == True;
+		Hero Of(Event Player) != Hero Of(Players In Slot(0, All Teams));
+	}
+
+	actions
+	{
+		Start Forcing Player To Be Hero(Event Player, Hero Of(Players In Slot(0, All Teams)));
+	}
+}
+
+rule("Bot Loop")
+{
+	event
+	{
+		Ongoing - Each Player;
+		Team 1;
+		Slot 5;
+	}
+
+	conditions
+	{
+		Is Dummy Bot(Event Player) == True;
+	}
+
+	actions
+	{
+		Start Forcing Player To Be Hero(Event Player, Hero Of(Players In Slot(0, All Teams)));
+		"disabled: doesn't work with dummy bots for some reason..."
+		disabled Call Subroutine(Health);
+		Call Subroutine(UltimateStatus);
+		Start Forcing Player To Be Hero(Event Player, Hero Of(Players In Slot(0, All Teams)));
+		Call Subroutine(Voicelines);
+		Start Forcing Player To Be Hero(Event Player, Hero Of(Players In Slot(0, All Teams)));
+		Wait(Global.delay, Ignore Condition);
+		Loop;
+	}
+}
+
+rule("Sub Ultimate")
+{
+	event
+	{
+		Subroutine;
+		UltimateStatus;
+	}
+
+	actions
+	{
+		Set Ultimate Charge(Event Player, 10);
+		Wait(0.250, Ignore Condition);
+		Global.current_voiceline = Custom String("Ultimate Charge (low)");
+		Communicate(Event Player, Ultimate Status);
+		Wait(Global.delay, Ignore Condition);
+		Set Ultimate Charge(Event Player, 90);
+		Global.current_voiceline = Custom String("Ultimate Charge (high)");
+		Communicate(Event Player, Ultimate Status);
+		Wait(Global.delay, Ignore Condition);
+		Set Ultimate Charge(Event Player, 100);
+		Global.current_voiceline = Custom String("Ultimate Charge (full)");
+		Communicate(Event Player, Ultimate Status);
+		Wait(Global.delay, Ignore Condition);
+	}
+}
+
+rule("Sub Health")
+{
+	event
+	{
+		Subroutine;
+		Health;
+	}
+
+	actions
+	{
+		Damage(Event Player, Null, Health(Event Player) - 1);
+		Wait(0.100, Abort When False);
+		Global.current_voiceline = Custom String("Need Healing (Critical)");
+		Communicate(Event Player, Need Healing);
+		Wait(Global.delay, Ignore Condition);
+		Heal(Event Player, Null, Max Health(Event Player) / 2 - Health(Event Player));
+		Wait(0.100, Ignore Condition);
+		Global.current_voiceline = Custom String("Need Healing (Damaged)");
+		Communicate(Event Player, Need Healing);
+		Wait(Global.delay, Ignore Condition);
+		Heal(Event Player, Null, Max Health(Event Player));
+		Wait(0.250, Ignore Condition);
+		Global.current_voiceline = Custom String("Need Healing");
+		Communicate(Event Player, Need Healing);
+		Wait(Global.delay, Ignore Condition);
+	}
+}
+
+rule("Sub Voicelines")
+{
+	event
+	{
+		Subroutine;
+		Voicelines;
+	}
+
+	actions
+	{
+		Global.current_voiceline = Custom String("Countdown");
+		Communicate(Event Player, Countdown);
+		Wait(1.500, Ignore Condition);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Go");
+		Communicate(Event Player, Go);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Hello");
+		Communicate(Event Player, Hello);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Group up");
+		Communicate(Event Player, Group Up);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Thanks");
+		Communicate(Event Player, Thanks);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Acknowledge");
+		Communicate(Event Player, Acknowledge);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Press the Attack");
+		Communicate(Event Player, Press the Attack);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("You are Welcome");
+		Communicate(Event Player, You are Welcome);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Yes");
+		Communicate(Event Player, Yes);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("No");
+		Communicate(Event Player, No);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Goodbye");
+		Communicate(Event Player, Goodbye);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Ready");
+		Communicate(Event Player, Ready);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Fall Back");
+		Communicate(Event Player, Fall Back);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Push Forward");
+		Communicate(Event Player, Push Forward);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Incoming");
+		Communicate(Event Player, Incoming);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("With You");
+		Communicate(Event Player, With You);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Going In");
+		Communicate(Event Player, Going In);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("On My Way");
+		Communicate(Event Player, On My Way);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Attacking");
+		Communicate(Event Player, Attacking);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Defending");
+		Communicate(Event Player, Defending);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Need Help");
+		Communicate(Event Player, Need Help);
+		Wait(Global.delay, Abort When False);
+		Global.current_voiceline = Custom String("Sorry");
+		Communicate(Event Player, Sorry);
+		Wait(Global.delay, Abort When False);
+	}
+}
